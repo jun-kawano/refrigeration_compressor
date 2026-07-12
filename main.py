@@ -1,7 +1,7 @@
 import time
 import concurrent.futures
 import pandas as pd
-from config import *
+import config
 from compressor_model import ReciprocatingCompressor
 from solver import simular_condicao
 from pathlib import Path
@@ -16,7 +16,10 @@ if __name__ == '__main__':
     # ESCOLHA E CONFIGURACAO DO MODELO DO COMPRESSOR
     # ==============================================================================
     compressor_ativo = ReciprocatingCompressor(
-        Dp, r_manivela, l_biela, l_pmls, dm, Vm, freq, sp_med
+        config.Dp, config.r_manivela, config.l_biela, config.l_pmls,
+        config.dm, config.Vm, config.freq,
+        config.m_eq_s, config.k_eq_s, config.y_max_s,
+        config.m_eq_d, config.k_eq_d, config.y_max_d
     )
 
     print(f"Usando modelo geométrico: {compressor_ativo.__class__.__name__}")
@@ -26,8 +29,8 @@ if __name__ == '__main__':
     # ==============================================================================
     start_time = time.time()
     with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
-        future_A = executor.submit(simular_condicao, P_eA, "Condição A", delta_P_max, num_ciclos, compressor_ativo)
-        future_B = executor.submit(simular_condicao, P_eB, "Condição B", delta_P_max, num_ciclos, compressor_ativo)
+        future_A = executor.submit(simular_condicao, config.P_eA, "Condição A", delta_P_max, num_ciclos, compressor_ativo)
+        future_B = executor.submit(simular_condicao, config.P_eB, "Condição B", delta_P_max, num_ciclos, compressor_ativo)
 
         res_A = future_A.result()
         res_B = future_B.result()
