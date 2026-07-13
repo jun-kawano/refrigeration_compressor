@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from pathlib import Path
+import CoolProp.CoolProp as CP
+import config
 
 
 # ==============================================================================
@@ -161,25 +163,77 @@ def plot_vazoes_massicas(res, titulo, freq, num_ciclos, out_dir):
     fig4.savefig(out_dir / f"Vazoes_Massicas_{safe_titulo}.png", format='png', bbox_inches='tight')
     plt.close(fig4)
 
+# ==============================================================================
+# CALCULO DE METRICAS DE DESEMPENHO
+# ==============================================================================
+def calculate_mass_flow(res, freq, num_ciclos, compressor):
+    t_start_last = (num_ciclos - 1) * (1.0 / compressor.freq)
+    idx = np.where(res['tempo'] >= t_start_last)[0]
+    t_cycle = res['tempo'][idx] - t_start_last
+    m_suc_cycle = res['m_suc'][idx]
+    mass_flow = np.trapezoid(m_suc_cycle, t_cycle) * freq
+    return mass_flow
+
+def calculate_indicated_power(res, freq, num_ciclos, compressor):
+    t_start_last = (num_ciclos - 1) * (1.0 / compressor.freq)
+    idx = np.where(res['tempo'] >= t_start_last)[0]
+    p_cycle = res['P'][idx]
+    v_cycle = res['V'][idx]
+    work_cycle = np.trapezoid(p_cycle, v_cycle)
+    indicated_power = -work_cycle * compressor.freq
+    return indicated_power
+
+def calculate_volumetric_efficiency(mass_flow, P_e, compressor):
+    rho_evap = CP.PropsSI('D', 'P', P_e,'Q', 1.0,  config.fluid)
+    V_sw = compressor.V_swept
+    volumetric_efficiency = mass_flow / (rho_evap * V_sw * freq)
+    return volumetric_efficiency
+
+def calculate_isentropic_efficiency(mass_flow, indicated_power, P_e, P_c, T_suc):
+    h_suc = CP.PropsSI('H', 'P', P_e,'T', T_suc,  config.fluid)
+    s_suc = CP.PropsSI('S', 'P', P_e,'T', T_suc,  config.fluid)
+    h_des_isen = CP.PropsSI('H', 'P', P_c, 'S', s_suc, config.fluid)
+    isentropic_power = mass_flow * (h_des_isen - h_suc)
+    isentropic_efficiency = isentropic_power / indicated_power
+    return isentropic_efficiency
+
+def calculate_cop(mass_flow, indicated_power, P_e, P_c, T_suc):
+    h_cond = CP.PropsSI('H', 'P', P_c,'Q', 0.0,  config.fluid)
+    h_evap = CP.PropsSI('H', 'P', P_e,'T', T_suc,  config.fluid)
+    delta_h = h_evap - h_cond
+    q_evap = mass_flow * delta_h
+    cop = q_evap / indicated_power
+    return cop
+
+def sim_summary(res, titulo, freq, num_ciclos, P_e, P_c, T_suc, compressor):
+    mass_flow = calculate_mass_flow(res, freq, num_ciclos, compressor)
+    indicated_power = calculate_indicated_power(res, freq, num_ciclos,compressor)
+    vol_eff = calculate_volumetric_efficiency(mass_flow, P_e, compressor)
+    isen_eff = calculate_isentropic_efficiency(mass_flow, indicated_power, P_e, P_c, T_suc)
+    cop = calculate_cop(mass_flow, indicated_power, P_e, P_c, T_suc)
+
+    print(f"\n--- Resumo da Simulação: {titulo} ---")
+    print(f"  Vazão mássica: {mass_flow*3600:.2f} kg/h")
+    print(f"  Potência indicada: {indicated_power:.2f} W")
+    print(f"  Eficiência volumétrica: {vol_eff:.2%}")
+    print(f"  Eficiência isentrópica: {isen_eff:.2%}")
+    print(f"  COP: {cop:.2f}")
 
 # ==============================================================================
 # EXECUCAO PRINCIPAL (Leitura dos CSVs e geracao dos plots)
 # ==============================================================================
 if __name__ == '__main__':
-    from config import freq, P_eA, P_eB, P_c, y_max_s, y_max_d
+    from config import freq, P_eA, P_eB, P_c, T_eA, T_eB, y_max_s, y_max_d, T_suc
 
-    num_ciclos = 15  # mesmo utilizado no main.py
+    num_ciclos = 15
     out_dir = Path('outputs')
 
     csv_A = out_dir / "Resultados_Condicao_A.csv"
     csv_B = out_dir / "Resultados_Condicao_B.csv"
 
-
     def csv_to_dict(caminho_csv):
-        """Converte o DataFrame lido num dicionario de arrays NumPy (para nao alterar a logica das funcoes originais)"""
         df = pd.read_csv(caminho_csv)
         return {coluna: df[coluna].values for coluna in df.columns}
-
 
     if csv_A.exists():
         print(f"Lendo e gerando graficos para: {csv_A}")
@@ -188,6 +242,7 @@ if __name__ == '__main__':
         plot_dinamica_ciclo(res_A, "Condicao A", freq, num_ciclos, out_dir, cor_p='blue')
         plot_deslocamento_valvulas(res_A, "Condicao A", freq, num_ciclos, y_max_s, y_max_d, out_dir)
         plot_vazoes_massicas(res_A, "Condicao A", freq, num_ciclos, out_dir)
+        sim_summary(res_A, "Condicao A", freq, num_ciclos, P_eA, P_c, T_suc, config.compressor_ativo)
     else:
         print(f"Aviso: Arquivo {csv_A} nao encontrado.")
 
@@ -198,6 +253,7 @@ if __name__ == '__main__':
         plot_dinamica_ciclo(res_B, "Condicao B", freq, num_ciclos, out_dir, cor_p='darkorange')
         plot_deslocamento_valvulas(res_B, "Condicao B", freq, num_ciclos, y_max_s, y_max_d, out_dir)
         plot_vazoes_massicas(res_B, "Condicao B", freq, num_ciclos, out_dir)
+        sim_summary(res_B, "Condicao B", freq, num_ciclos, P_eB, P_c, T_suc, config.compressor_ativo)
     else:
         print(f"Aviso: Arquivo {csv_B} nao encontrado.")
 
