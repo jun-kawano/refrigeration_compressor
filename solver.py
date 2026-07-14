@@ -8,10 +8,10 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
     print(f"\n--- Iniciando simulação da {nome_condicao} (solve_ivp) ---")
     t_stop = num_ciclos * (1 / freq)
 
-    # inlet Enthalpy
+    # inlet enthalpy
     h_suc_in = CP.PropsSI('H', 'T', T_suc, 'P', P_suc_target, fluid)
 
-    # initial Conditions
+    # initial conditions
     T0 = T_suc
     vol0 = compressor.volume(0.0)
     m0 = vol0 * CP.PropsSI('D', 'T', T_suc, 'P', P_suc_target, fluid)
@@ -75,7 +75,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         dT_dt = numerador / (m_i * Cv_i)
 
         # Return [dT/dt, dm/dt, dy_suc/dt, dv_suc/dt, dy_des/dt, dv_des/dt]
-        return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]S
+        return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]
 
 
     sol = solve_ivp(
