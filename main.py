@@ -7,8 +7,6 @@ from solver import simular_condicao
 from pathlib import Path
 
 if __name__ == '__main__':
-    num_ciclos = 15
-    delta_P_max = 1000
     out_dir = Path('outputs')
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -30,16 +28,16 @@ if __name__ == '__main__':
     start_time = time.time()
     # with concurrent.futures.ProcessPoolExecutor(max_workers=2) as executor:
     #     future_A = executor.submit(
-    #         simular_condicao, config.P_eA, "Condição A", delta_P_max, num_ciclos, compressor_ativo
+    #         simular_condicao, config.P_eA, "Condição A", config.delta_P_max, config.num_ciclos, config.compressor_ativo
     #     )
     #     future_B = executor.submit(
-    #         simular_condicao, config.P_eB, "Condição B", delta_P_max, num_ciclos, compressor_ativo
+    #         simular_condicao, config.P_eB, "Condição B", config.delta_P_max, config.num_ciclos, config.compressor_ativo
     #     )
     #
     #     res_A = future_A.result()
     #     res_B = future_B.result()
 
-    res_A = simular_condicao(config.P_eA, "Condição A", delta_P_max, num_ciclos, config.compressor_ativo)
+    res_A = simular_condicao(config.P_eA, "Condição A", config.delta_P_max, config.num_ciclos, config.compressor_ativo)
 
     elapsed = time.time() - start_time
     print(f"\nSimulações concluídas em {elapsed:.2f}s.")
