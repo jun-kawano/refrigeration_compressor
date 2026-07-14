@@ -86,7 +86,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         fun=compressor_odes,
         t_span=(0, t_stop),
         y0=Y0,
-        method='Radau',
+        method=solver_method,
         rtol=custom_rtol,
         atol=custom_atol
     )
