@@ -75,7 +75,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         dT_dt = numerador / (m_i * Cv_i)
 
         # Return [dT/dt, dm/dt, dy_suc/dt, dv_suc/dt, dy_des/dt, dv_des/dt]
-        return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]
+        return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]S
 
 
     sol = solve_ivp(
@@ -86,14 +86,10 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         rtol=custom_rtol,
         atol=custom_atol
     )
-
-    # ==========================================
-    # VERIFICACAO DE CONVERGENCIA
-    # ==========================================
     if sol.success:
         print(f"[{nome_condicao}] Simulação {solver_method} concluída com sucesso! ({sol.message})")
     else:
-        print(f"[{nome_condicao}] FALHA NA SIMULAÇÃO! Motivo: {sol.message}")
+        print(f"[{nome_condicao}] FALHA! Motivo: {sol.message}")
     # ==========================================
 
     print(f"[{nome_condicao}] Processando dados de saída...")
