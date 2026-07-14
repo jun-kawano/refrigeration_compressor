@@ -1,14 +1,13 @@
 import numpy as np
 import CoolProp.CoolProp as CP
-from config import *
-from compressor_model import h_coef, Aef_suc, Aef_des, Aee_suc, Aee_des, m_dot_valve
+from config import (freq, T_suc, fluid, P_c, R_gas, T_cil, fator_esc_reverso)
 
 def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compressor):
     print(f"\n--- Iniciando simulação da {nome_condicao} (Passo Adaptativo) ---")
     t_stop = num_ciclos * (1 / freq)
     i = 0
     h_suc_in = CP.PropsSI('H', 'T', T_suc, 'P', P_suc_target, fluid)
-    T_cil_local = 65 + 273.15
+    T_cil_local = T_cil
     t_ciclo = 1.0 / freq
 
     # Limites do Passo de Tempo
@@ -30,8 +29,8 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
     mdot_suc, mdot_des = [0.0], [0.0]
 
     F_gas_s_list, F_gas_d_list = [0.0], [0.0]
-    A_ef_s_list, A_ef_d_list = [Aef_suc(0.0)], [Aef_des(0.0)]
-    A_ee_s_list, A_ee_d_list = [Aee_suc(0.0)], [Aee_des(0.0)]
+    A_ef_s_list, A_ef_d_list = [compressor.suction_valve.Aef(0.0)], [compressor.suction_valve.Aef(0.0)]
+    A_ee_s_list, A_ee_d_list = [compressor.discharge_valve.Aee(0.0)], [compressor.discharge_valve.Aee(0.0)]
 
     t = 0.0
     ciclo_atual = 0
@@ -54,34 +53,19 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         y_suc_i, v_suc_i = y_v_suc[-1], v_v_suc[-1]
         y_des_i, v_des_i = y_v_des[-1], v_v_des[-1]
 
-        a_ef_s = Aef_suc(y_suc_i)
-        a_ef_d = Aef_des(y_des_i)
-        a_ee_s = Aee_suc(y_suc_i)
-        a_ee_d = Aee_des(y_des_i)
-
         # Dinamica Succao
         delta_P_suc = P_suc_target - P_i
-        F_gas_suc = delta_P_suc * a_ef_s
-        dv_dt_suc = (F_gas_suc - (k_eq_s * y_suc_i)) / m_eq_s
-
-        if y_suc_i <= 0.0 and dv_dt_suc < 0:
-            dv_dt_suc = 0.0
-        elif y_suc_i >= y_max_s and dv_dt_suc > 0:
-            dv_dt_suc = 0.0
+        dv_dt_suc, F_gas_suc, a_ef_s = compressor.suction_valve.get_acceleration(delta_P_suc, y_suc_i)
+        a_ee_s = compressor.suction_valve.Aee(y_suc_i)
 
         # Dinamica Descarga
         delta_P_des = P_i - P_c
-        F_gas_des = delta_P_des * a_ef_d
-        dv_dt_des = (F_gas_des - (k_eq_d * y_des_i)) / m_eq_d
-
-        if y_des_i <= 0.0 and dv_dt_des < 0:
-            dv_dt_des = 0.0
-        elif y_des_i >= y_max_d and dv_dt_des > 0:
-            dv_dt_des = 0.0
+        dv_dt_des, F_gas_des, a_ef_d = compressor.discharge_valve.get_acceleration(delta_P_des, y_des_i)
+        a_ee_d = compressor.discharge_valve.Aee(y_des_i)
 
         # balanco de massa
-        dm_dt_suc = m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s)
-        dm_dt_des = m_dot_valve(P_i, P_c, T_i, k_i, a_ee_d)
+        dm_dt_suc = compressor.suction_valve.m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s, R_gas, fator_esc_reverso)
+        dm_dt_des = compressor.discharge_valve.m_dot_valve(P_i, P_c, T_i, k_i, a_ee_d, R_gas, fator_esc_reverso)
 
         dm_dt = dm_dt_suc - dm_dt_des
 
@@ -89,7 +73,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         dV_dt = (V_prox_calc - V_i) / dt
 
         # repassando a classe do compressor para a troca termica
-        H_convec = h_coef(T_i, rho_i, compressor)
+        H_convec = compressor.h_coef(T_i, rho_i, fluid)
         A_convec = compressor.area_convec(t)
         Q_dot = H_convec * A_convec * (T_cil_local - T_i)
         H_flux = (dm_dt_suc * h_suc_in) - (dm_dt_des * h_i)
@@ -116,20 +100,20 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         # limites (bounce)
         if y_suc_prox < 0.0:
             y_suc_prox, v_suc_prox = 0.0, 0.0
-        elif y_suc_prox > y_max_s:
-            y_suc_prox, v_suc_prox = y_max_s, 0.0
+        elif y_suc_prox > compressor.suction_valve.y_max:
+            y_suc_prox, v_suc_prox = compressor.suction_valve.y_max, 0.0
 
         if y_des_prox < 0.0:
             y_des_prox, v_des_prox = 0.0, 0.0
-        elif y_des_prox > y_max_d:
-            y_des_prox, v_des_prox = y_max_d, 0.0
+        elif y_des_prox > compressor.discharge_valve.y_max:
+            y_des_prox, v_des_prox = compressor.discharge_valve.y_max, 0.0
 
         try:
             P_prox = CP.PropsSI('P', 'T', T_prox, 'D', rho_prox, fluid)
             if np.isnan(P_prox) or P_prox < 0:
                 w = 0.2
                 P_prox = (1-w)*(rho_prox * R_gas * T_prox) + w*P_i
-        except Exception:
+        except ValueError:
             w = 0.2
             P_prox = (1-w)*(rho_prox * R_gas * T_prox) + w*P_i
 
