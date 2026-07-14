@@ -1,171 +1,178 @@
 import numpy as np
 import CoolProp.CoolProp as CP
+from scipy.integrate import solve_ivp
 from config import (freq, T_suc, fluid, P_c, R_gas, T_cil, fator_esc_reverso)
 
+
 def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compressor):
-    print(f"\n--- Iniciando simulação da {nome_condicao} (Passo Adaptativo) ---")
+    print(f"\n--- Iniciando simulação da {nome_condicao} (solve_ivp) ---")
     t_stop = num_ciclos * (1 / freq)
-    i = 0
+
+    # inlet Enthalpy
     h_suc_in = CP.PropsSI('H', 'T', T_suc, 'P', P_suc_target, fluid)
-    T_cil_local = T_cil
-    t_ciclo = 1.0 / freq
 
-    # Limites do Passo de Tempo
-    dt_max = t_ciclo / 180
-    dt_min = dt_max / 128
-    dt = dt_max
+    # initial Conditions
+    T0 = T_suc
+    vol0 = compressor.volume(0.0)
+    m0 = vol0 * CP.PropsSI('D', 'T', T_suc, 'P', P_suc_target, fluid)
 
-    # Inicializacao das variaveis
-    sim_time = [0.0]
-    T = [T_suc]
-    P = [P_suc_target]
-    vol = [compressor.volume(0.0)]
-    m = [vol[0] * CP.PropsSI('D', 'T', T_suc, 'P', P_suc_target, fluid)]
-    h = [CP.PropsSI('H', 'T', T_suc, 'P', P_suc_target, fluid)]
-    s = [CP.PropsSI('S', 'T', T_suc, 'P', P_suc_target, fluid)]
+    # Y = [T, m, y_suc, v_suc, y_des, v_des]
+    Y0 = [T0, m0, 0.0, 0.0, 0.0, 0.0]
 
-    y_v_suc, v_v_suc = [0.0], [0.0]
-    y_v_des, v_v_des = [0.0], [0.0]
-    mdot_suc, mdot_des = [0.0], [0.0]
+    # ---------------------------------------------------------
+    # ODE function
+    # ---------------------------------------------------------
+    def compressor_odes(t, Y):
+        T_i, m_i, y_suc_i, v_suc_i, y_des_i, v_des_i = Y
 
-    F_gas_s_list, F_gas_d_list = [0.0], [0.0]
-    A_ef_s_list, A_ef_d_list = [compressor.suction_valve.Aef(0.0)], [compressor.suction_valve.Aef(0.0)]
-    A_ee_s_list, A_ee_d_list = [compressor.discharge_valve.Aee(0.0)], [compressor.discharge_valve.Aee(0.0)]
+        # state protections to avoid problems with over stepping
+        T_i = max(T_i, 150.0)
+        m_i = max(m_i, 1e-10)
 
-    t = 0.0
-    ciclo_atual = 0
-
-    # Loop do Solver
-    while t < t_stop:
-        T_i = T[-1]
-        P_i = P[-1]
-        m_i = m[-1]
-        V_i = vol[-1]
-
+        V_i = compressor.volume(t)
         rho_i = m_i / V_i
+
+        # thermodynamic props (with fallback to ideal gas law)
+        try:
+            P_i = CP.PropsSI('P', 'T', T_i, 'D', rho_i, fluid)
+            if np.isnan(P_i) or P_i < 0:
+                P_i = rho_i * R_gas * T_i
+        except ValueError:
+            P_i = rho_i * R_gas * T_i
 
         Cv_i = CP.PropsSI('CVMASS', 'T', T_i, 'D', rho_i, fluid)
         dP_dT_i = CP.PropsSI('d(P)/d(T)|D', 'T', T_i, 'D', rho_i, fluid)
-        h_i = h[-1]
+        h_i = CP.PropsSI('H', 'T', T_i, 'D', rho_i, fluid)
         k_i = CP.PropsSI('CP0MASS', 'T', T_i, 'D', rho_i, fluid) / Cv_i
 
-        # --- LOGICA DAS VALVULAS ---
-        y_suc_i, v_suc_i = y_v_suc[-1], v_v_suc[-1]
-        y_des_i, v_des_i = y_v_des[-1], v_v_des[-1]
-
-        # Dinamica Succao
+        # --- SUCTION VALVE DYNAMICS ---
         delta_P_suc = P_suc_target - P_i
         dv_dt_suc, F_gas_suc, a_ef_s = compressor.suction_valve.get_acceleration(delta_P_suc, y_suc_i)
         a_ee_s = compressor.suction_valve.Aee(y_suc_i)
 
-        # Dinamica Descarga
+        # Virtual Bumper (Penalty Method) for Suction
+        k_bump = 5e5  # Stiff virtual spring
+        c_bump = 20.0  # Virtual damper to stop bouncing
+
+        if y_suc_i < 0.0:
+            dv_dt_suc += (-k_bump * y_suc_i - c_bump * v_suc_i) / compressor.suction_valve.m_eq
+        elif y_suc_i > compressor.suction_valve.y_max:
+            dv_dt_suc += (-k_bump * (
+                        y_suc_i - compressor.suction_valve.y_max) - c_bump * v_suc_i) / compressor.suction_valve.m_eq
+
+        # --- DISCHARGE VALVE DYNAMICS ---
         delta_P_des = P_i - P_c
         dv_dt_des, F_gas_des, a_ef_d = compressor.discharge_valve.get_acceleration(delta_P_des, y_des_i)
         a_ee_d = compressor.discharge_valve.Aee(y_des_i)
 
-        # balanco de massa
-        dm_dt_suc = compressor.suction_valve.m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s, R_gas, fator_esc_reverso)
-        dm_dt_des = compressor.discharge_valve.m_dot_valve(P_i, P_c, T_i, k_i, a_ee_d, R_gas, fator_esc_reverso)
+        # Virtual Bumper (Penalty Method) for Discharge
+        if y_des_i < 0.0:
+            dv_dt_des += (-k_bump * y_des_i - c_bump * v_des_i) / compressor.discharge_valve.m_eq
+        elif y_des_i > compressor.discharge_valve.y_max:
+            dv_dt_des += (-k_bump * (
+                        y_des_i - compressor.discharge_valve.y_max) - c_bump * v_des_i) / compressor.discharge_valve.m_eq
 
+
+
+        # --- MASS BALANCE ---
+        dm_dt_suc = compressor.suction_valve.m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s, R_gas,
+                                                         fator_esc_reverso)
+        dm_dt_des = compressor.discharge_valve.m_dot_valve(P_i, P_c, T_i, k_i, a_ee_d, R_gas, fator_esc_reverso)
         dm_dt = dm_dt_suc - dm_dt_des
 
-        V_prox_calc = compressor.volume(t + dt)
-        dV_dt = (V_prox_calc - V_i) / dt
+        # --- ENERGY BALANCE ---
+        # Central difference for dV/dt (smooth and accurate)
+        dt_vol = 1e-6
+        dV_dt = (compressor.volume(t + dt_vol) - compressor.volume(max(0, t - dt_vol))) / (2 * dt_vol)
 
-        # repassando a classe do compressor para a troca termica
         H_convec = compressor.h_coef(T_i, rho_i, fluid)
         A_convec = compressor.area_convec(t)
-        Q_dot = H_convec * A_convec * (T_cil_local - T_i)
+        Q_dot = H_convec * A_convec * (T_cil - T_i)
         H_flux = (dm_dt_suc * h_suc_in) - (dm_dt_des * h_i)
-        # balanco de Energia
+
         numerador = Q_dot + H_flux - (h_i * dm_dt) - (T_i * dP_dT_i * (dV_dt - (dm_dt / rho_i)))
         dT_dt = numerador / (m_i * Cv_i)
 
-        # calculos das proximas variaveis
-        T_prox = T_i + dT_dt * dt
-        T_prox = max(T_prox, 150.0)  # T min do coolprop
+        # Return [dT/dt, dm/dt, dy_suc/dt, dv_suc/dt, dy_des/dt, dv_des/dt]
+        return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]
 
-        m_prox = m_i + dm_dt * dt
-        m_prox = max(m_prox, 1e-10)  # evitar problemas de inf
+    # ---------------------------------------------------------
+    # Execute the Solver
+    # ---------------------------------------------------------
+    # Radau is highly recommended for stiff systems like compressors
+    # BDF is an alternative if Radau fails
+    sol = solve_ivp(
+        fun=compressor_odes,
+        t_span=(0, t_stop),
+        y0=Y0,
+        method='Radau',
+        rtol=1e-4,  # Adjust tolerances if it runs too slow or is unstable
+        atol=1e-6
+    )
 
-        V_prox = V_prox_calc
-        rho_prox = m_prox / V_prox
+    print(f"[{nome_condicao}] Simulação concluida! Processando dados de saída...")
 
-        v_suc_prox = v_suc_i + dv_dt_suc * dt
-        v_des_prox = v_des_i + dv_dt_des * dt
+    # ---------------------------------------------------------
+    # Post-Processing
+    # ---------------------------------------------------------
+    # solve_ivp returns the primary states. We must calculate the
+    # dependent algebraic variables (P, h, m_dot) post-integration.
 
-        y_suc_prox = y_suc_i + v_suc_prox * dt + (dv_dt_suc * dt * dt / 2)
-        y_des_prox = y_des_i + v_des_prox * dt + (dv_dt_des * dt * dt / 2)
+    t_out = sol.t
+    T_out = sol.y[0]
+    m_out = sol.y[1]
+    y_suc_out = sol.y[2]
+    v_suc_out = sol.y[3]
+    y_des_out = sol.y[4]
+    v_des_out = sol.y[5]
 
-        # limites (bounce)
-        if y_suc_prox < 0.0:
-            y_suc_prox, v_suc_prox = 0.0, 0.0
-        elif y_suc_prox > compressor.suction_valve.y_max:
-            y_suc_prox, v_suc_prox = compressor.suction_valve.y_max, 0.0
+    # Pre-allocate output arrays
+    P_out = np.zeros_like(t_out)
+    V_out = np.zeros_like(t_out)
+    h_out = np.zeros_like(t_out)
+    m_suc_out = np.zeros_like(t_out)
+    m_des_out = np.zeros_like(t_out)
 
-        if y_des_prox < 0.0:
-            y_des_prox, v_des_prox = 0.0, 0.0
-        elif y_des_prox > compressor.discharge_valve.y_max:
-            y_des_prox, v_des_prox = compressor.discharge_valve.y_max, 0.0
+    for i, t_val in enumerate(t_out):
+        T_i = T_out[i]
+        m_i = m_out[i]
+        y_s_i = y_suc_out[i]
+        y_d_i = y_des_out[i]
+
+        V_i = compressor.volume(t_val)
+        rho_i = m_i / V_i
+        V_out[i] = V_i
 
         try:
-            P_prox = CP.PropsSI('P', 'T', T_prox, 'D', rho_prox, fluid)
-            if np.isnan(P_prox) or P_prox < 0:
-                w = 0.2
-                P_prox = (1-w)*(rho_prox * R_gas * T_prox) + w*P_i
+            P_i = CP.PropsSI('P', 'T', T_i, 'D', rho_i, fluid)
+            h_i = CP.PropsSI('H', 'T', T_i, 'D', rho_i, fluid)
+            k_i = CP.PropsSI('CP0MASS', 'T', T_i, 'D', rho_i, fluid) / CP.PropsSI('CVMASS', 'T', T_i, 'D', rho_i, fluid)
         except ValueError:
-            w = 0.2
-            P_prox = (1-w)*(rho_prox * R_gas * T_prox) + w*P_i
+            P_i = rho_i * R_gas * T_i
+            h_i = 0  # Fallback
+            k_i = 1.4  # Fallback
 
-        delta_P = abs(P_prox - P_i)
+        P_out[i] = P_i
+        h_out[i] = h_i
 
-        # adaptacao de passo
-        if delta_P <= delta_P_max or dt <= dt_min:
-            t += dt
-            i += 1
-            sim_time.append(t)
-            T.append(T_prox)
-            P.append(P_prox)
-            m.append(m_prox)
-            vol.append(V_prox)
-            h.append(CP.PropsSI('H', 'T', T_prox, 'D', rho_prox, fluid))
-            s.append(CP.PropsSI('S', 'T', T_prox, 'D', rho_prox, fluid))
+        a_ee_s = compressor.suction_valve.Aee(y_s_i)
+        a_ee_d = compressor.discharge_valve.Aee(y_d_i)
 
-            y_v_suc.append(y_suc_prox)
-            v_v_suc.append(v_suc_prox)
-            y_v_des.append(y_des_prox)
-            v_v_des.append(v_des_prox)
+        m_suc_out[i] = compressor.suction_valve.m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s, R_gas,
+                                                            fator_esc_reverso)
+        m_des_out[i] = compressor.discharge_valve.m_dot_valve(P_i, P_c, T_i, k_i, a_ee_d, R_gas, fator_esc_reverso)
 
-            mdot_suc.append(dm_dt_suc)
-            mdot_des.append(dm_dt_des)
-
-            F_gas_s_list.append(F_gas_suc)
-            F_gas_d_list.append(F_gas_des)
-            A_ef_s_list.append(a_ef_s)
-            A_ef_d_list.append(a_ef_d)
-            A_ee_s_list.append(a_ee_s)
-            A_ee_d_list.append(a_ee_d)
-
-            dt = min(dt * 1.1, dt_max)
-
-            if t >= (ciclo_atual + 1) * t_ciclo:
-                ciclo_atual += 1
-                print(f"[{nome_condicao}] Ciclo {ciclo_atual}/{num_ciclos} finalizado. Passos totais: {len(sim_time)}")
-        else:
-            dt = dt / 2.0
-
-    print(f"[{nome_condicao}] Simulação concluida!")
     return {
-        'tempo': np.array(sim_time),
-        'P': np.array(P),
-        'T': np.array(T),
-        'V': np.array(vol),
-        'h': np.array(h),
-        'm': np.array(m),
-        'y_suc': np.array(y_v_suc),
-        'y_des': np.array(y_v_des),
-        'v_suc': np.array(v_v_suc),
-        'v_des': np.array(v_v_des),
-        'm_suc': np.array(mdot_suc),
-        'm_des': np.array(mdot_des)
+        'tempo': t_out,
+        'P': P_out,
+        'T': T_out,
+        'V': V_out,
+        'h': h_out,
+        'm': m_out,
+        'y_suc': y_suc_out,
+        'y_des': y_des_out,
+        'v_suc': v_suc_out,
+        'v_des': v_des_out,
+        'm_suc': m_suc_out,
+        'm_des': m_des_out
     }

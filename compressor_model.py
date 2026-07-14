@@ -25,26 +25,32 @@ class Valve:
             raise ValueError("valve_type must be either 'suction' or 'discharge'")
 
     def Aef(self, y):
+        #
+        y_safe = max(0.0, min(y, self.y_max))
+
         if self.valve_type == 'suction':
-            if y <= 0.3e-3:
+            if y_safe <= 0.3e-3:
                 c1, c2, c3 = self.aef_coeffs_low
-                return c1 + (c2 * y) + (c3 * y * y)
-            elif y <= 3e-3:
+                return c1 + (c2 * y_safe) + (c3 * y_safe * y_safe)
+            elif y_safe <= 3e-3:
                 c1, c2, c3, c4, c5, c6 = self.aef_coeffs_high
-                return c1 + (c2 * y) + (c3 * y * y) + (c4 * y ** 3) + (c5 * y ** 4) + (c6 * y ** 5)
+                return c1 + (c2 * y_safe) + (c3 * y_safe * y_safe) + (c4 * y_safe ** 3) + (c5 * y_safe ** 4) + (
+                            c6 * y_safe ** 5)
             else:
                 return self.aef_const
         elif self.valve_type == 'discharge':
             c1, c2, c3, c4 = self.aef_coeffs
-            return c1 + (c2 * y) + (c3 * y * y) + (c4 * y ** 3)
+            return c1 + (c2 * y_safe) + (c3 * y_safe * y_safe) + (c4 * y_safe ** 3)
 
     def Aee(self, y):
+        y_safe = max(0.0, min(y, self.y_max))
+
         if self.valve_type == 'suction':
             c1, c2, c3, c4, c5 = self.aee_coeffs
-            return c1 + (c2 * y) + (c3 * y * y) + (c4 * y ** 3) + (c5 * y ** 4)
+            return c1 + (c2 * y_safe) + (c3 * y_safe * y_safe) + (c4 * y_safe ** 3) + (c5 * y_safe ** 4)
         elif self.valve_type == 'discharge':
             c1, c2, c3, c4 = self.aee_coeffs
-            return c1 + (c2 * y) + (c3 * y * y) + (c4 * y ** 3)
+            return c1 + (c2 * y_safe) + (c3 * y_safe * y_safe) + (c4 * y_safe ** 3)
 
     def m_dot_valve(self, P_up, P_down, T_up, k, area, R_gas, fator_esc_reverso):
         if area <= 0.0:
@@ -67,16 +73,20 @@ class Valve:
 
         return sinal * area * P_in * np.sqrt(term1 * term2)
 
+    # def get_acceleration(self, delta_P, y):
+    #     a_ef = self.Aef(y)
+    #     F_gas = delta_P * a_ef
+    #     dv_dt = (F_gas - (self.k_eq * y)) / self.m_eq
+    #
+    #     if y <= 0.0 and dv_dt < 0:
+    #         dv_dt = 0.0
+    #     elif y >= self.y_max and dv_dt > 0:
+    #         dv_dt = 0.0
+    #     return dv_dt, F_gas, a_ef
     def get_acceleration(self, delta_P, y):
         a_ef = self.Aef(y)
         F_gas = delta_P * a_ef
         dv_dt = (F_gas - (self.k_eq * y)) / self.m_eq
-
-        if y <= 0.0 and dv_dt < 0:
-            dv_dt = 0.0
-        elif y >= self.y_max and dv_dt > 0:
-            dv_dt = 0.0
-
         return dv_dt, F_gas, a_ef
 
 # ==============================================================================
@@ -100,7 +110,7 @@ class ReciprocatingCompressor:
         self.sp_med = 2.0 * (2.0 * r_manivela) * freq
         self.A_piston = 0.25 * np.pi * Dp * Dp
         self.V_swept = self.A_piston * self.L
-                     
+
         self.suction_valve = Valve('suction', m_eq_s, k_eq_s, y_max_s)
         self.discharge_valve = Valve('discharge', m_eq_d, k_eq_d, y_max_d)
 
