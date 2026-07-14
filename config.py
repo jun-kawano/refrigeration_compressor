@@ -8,7 +8,7 @@ from compressor_model import ReciprocatingCompressor
 
 num_ciclos = 15
 delta_P_max = 1000
-
+solver_method = 'RK23'
 # ==============================================================================
 # PARAMETROS GERAIS E TERMODINAMICOS
 # ==============================================================================

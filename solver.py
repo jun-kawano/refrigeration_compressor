@@ -4,7 +4,7 @@ from scipy.integrate import solve_ivp
 from config import (freq, T_suc, fluid, P_c, R_gas, T_cil, fator_esc_reverso)
 
 
-def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compressor):
+def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compressor, solver_method='RK23'):
     print(f"\n--- Iniciando simulação da {nome_condicao} (solve_ivp) ---")
     t_stop = num_ciclos * (1 / freq)
 
@@ -105,7 +105,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         fun=compressor_odes,
         t_span=(0, t_stop),
         y0=Y0,
-        method='Radau',
+        method=solver_method,
         rtol=1e-4,  # Adjust tolerances if it runs too slow or is unstable
         atol=1e-6
     )
