@@ -4,13 +4,13 @@ This is a Python numerical simulation of a reciprocating compressor. It solves t
 
 Project Structure:
 
-  main.py: The entry point that sets up and runs the simulations.
+      main.py: The entry point that sets up and runs the simulations.
 
-  config.py: Stores all physical, geometric, and dynamic parameters.
+      config.py: Stores all physical, geometric, and dynamic parameters.
 
-  compressor_model.py: Contains the OOP representation of the Compressor and Valves, including the Penalty Method (virtual bumpers) for handling valve limits.
+      compressor_model.py: Contains the OOP representation of the Compressor and Valves, including the Penalty Method (virtual bumpers) for handling valve limits.
 
-  solver.py: Packages the state variables and runs the ODE solver.
+      solver.py: Packages the state variables and runs the ODE solver.
 
 Installation:
 Requires Python 3.8+. Install dependencies using:
