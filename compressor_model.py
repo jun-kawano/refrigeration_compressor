@@ -83,10 +83,21 @@ class Valve:
     #     elif y >= self.y_max and dv_dt > 0:
     #         dv_dt = 0.0
     #     return dv_dt, F_gas, a_ef
-    def get_acceleration(self, delta_P, y):
+    def get_acceleration(self, delta_P, y, v):
         a_ef = self.Aef(y)
         F_gas = delta_P * a_ef
         dv_dt = (F_gas - (self.k_eq * y)) / self.m_eq
+
+        # ==========================================
+        # penalty method for dealing with backstop
+        k_bump = 5e5  # Stiff virtual spring
+        c_bump = 20.0  # Virtual damper to stop bouncing
+
+        if y < 0.0:
+            dv_dt += (-k_bump * y - c_bump * v) / self.m_eq
+        elif y > self.y_max:
+            dv_dt += (-k_bump * (y - self.y_max) - c_bump * v) / self.m_eq
+
         return dv_dt, F_gas, a_ef
 
 # ==============================================================================

@@ -2,7 +2,6 @@ import time
 import concurrent.futures
 import pandas as pd
 import config
-from compressor_model import ReciprocatingCompressor
 from solver import simular_condicao
 from pathlib import Path
 
@@ -20,7 +19,7 @@ if __name__ == '__main__':
     #     config.m_eq_d, config.k_eq_d, config.y_max_d
     # )
 
-    print(f"Usando modelo geométrico: {config.compressor_ativo.__class__.__name__}")
+    print(f"Usando modelo geométrico: {config.compressor_ativo.__class__.__name__} e método: {config.solver_method}")
 
     # ==============================================================================
     # EXECUCAO PARALELA

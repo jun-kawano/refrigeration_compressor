@@ -1,7 +1,7 @@
 import numpy as np
 import CoolProp.CoolProp as CP
 from scipy.integrate import solve_ivp
-from config import (freq, T_suc, fluid, P_c, R_gas, T_cil, fator_esc_reverso)
+from config import (freq, T_suc, fluid, P_c, R_gas, T_cil, fator_esc_reverso, custom_rtol, custom_atol)
 
 
 def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compressor, solver_method='RK23'):
@@ -47,32 +47,13 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
 
         # --- SUCTION VALVE DYNAMICS ---
         delta_P_suc = P_suc_target - P_i
-        dv_dt_suc, F_gas_suc, a_ef_s = compressor.suction_valve.get_acceleration(delta_P_suc, y_suc_i)
+        dv_dt_suc, F_gas_suc, a_ef_s = compressor.suction_valve.get_acceleration(delta_P_suc, y_suc_i, v_suc_i)
         a_ee_s = compressor.suction_valve.Aee(y_suc_i)
-
-        # Virtual Bumper (Penalty Method) for Suction
-        k_bump = 5e5  # Stiff virtual spring
-        c_bump = 20.0  # Virtual damper to stop bouncing
-
-        if y_suc_i < 0.0:
-            dv_dt_suc += (-k_bump * y_suc_i - c_bump * v_suc_i) / compressor.suction_valve.m_eq
-        elif y_suc_i > compressor.suction_valve.y_max:
-            dv_dt_suc += (-k_bump * (
-                        y_suc_i - compressor.suction_valve.y_max) - c_bump * v_suc_i) / compressor.suction_valve.m_eq
 
         # --- DISCHARGE VALVE DYNAMICS ---
         delta_P_des = P_i - P_c
-        dv_dt_des, F_gas_des, a_ef_d = compressor.discharge_valve.get_acceleration(delta_P_des, y_des_i)
+        dv_dt_des, F_gas_des, a_ef_d = compressor.discharge_valve.get_acceleration(delta_P_des, y_des_i, v_des_i)
         a_ee_d = compressor.discharge_valve.Aee(y_des_i)
-
-        # Virtual Bumper (Penalty Method) for Discharge
-        if y_des_i < 0.0:
-            dv_dt_des += (-k_bump * y_des_i - c_bump * v_des_i) / compressor.discharge_valve.m_eq
-        elif y_des_i > compressor.discharge_valve.y_max:
-            dv_dt_des += (-k_bump * (
-                        y_des_i - compressor.discharge_valve.y_max) - c_bump * v_des_i) / compressor.discharge_valve.m_eq
-
-
 
         # --- MASS BALANCE ---
         dm_dt_suc = compressor.suction_valve.m_dot_valve(P_suc_target, P_i, T_suc, k_i, a_ee_s, R_gas,
@@ -105,9 +86,9 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         fun=compressor_odes,
         t_span=(0, t_stop),
         y0=Y0,
-        method=solver_method,
-        rtol=1e-4,  # Adjust tolerances if it runs too slow or is unstable
-        atol=1e-6
+        method='Radau',
+        rtol=custom_rtol,
+        atol=custom_atol
     )
 
     print(f"[{nome_condicao}] Simulação concluida! Processando dados de saída...")
