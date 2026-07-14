@@ -13,14 +13,14 @@ class Valve:
         self.m_eq = m_eq
         self.k_eq = k_eq
         self.y_max = y_max
-        if self.valve_type == 'suction':
-            self.aef_coeffs_low = [5.13E-05, -4.73E-02, 1.30E+02]
-            self.aef_coeffs_high = [4.42E-05, 2.39E-02, -3.28E+01, 1.84E+04, -5.51E+06, 6.69E+08]
-            self.aef_const = 5.13E-05
-            self.aee_coeffs = [0.0, 2.55E-02, -9.19E+00, 1.94E+03, -2.00E+05]
+        if self.valve_type == 'suction': # must change this part to be an input attribute so that the polynomial is customizable
+            self.aef_coeffs_low = [5.1E-05, -4.7E-02, 1.3E+02]
+            self.aef_coeffs_high = [4.4E-05, 2.4E-02, -3.3E+01, 1.8E+04, -5.5E+06, 6.7E+08]
+            self.aef_const = 5.1E-05
+            self.aee_coeffs = [0.0, 2.6E-02, -9.2E+00, 1.9E+03, -2.0E+05]
         elif self.valve_type == 'discharge':
-            self.aef_coeffs = [3.32E-05, -1.38E-01, 2.87E+02, -1.62E+05]
-            self.aee_coeffs = [0.0, 3.12E-02, -2.43E+01, 5.30E+03]
+            self.aef_coeffs = [3.3E-05, -1.4E-01, 2.9E+02, -1.6E+05]
+            self.aee_coeffs = [0.0, 3.1E-02, -2.4E+01, 5.3E+03]
         else:
             raise ValueError("valve_type must be either 'suction' or 'discharge'")
 
@@ -73,16 +73,6 @@ class Valve:
 
         return sinal * area * P_in * np.sqrt(term1 * term2)
 
-    # def get_acceleration(self, delta_P, y):
-    #     a_ef = self.Aef(y)
-    #     F_gas = delta_P * a_ef
-    #     dv_dt = (F_gas - (self.k_eq * y)) / self.m_eq
-    #
-    #     if y <= 0.0 and dv_dt < 0:
-    #         dv_dt = 0.0
-    #     elif y >= self.y_max and dv_dt > 0:
-    #         dv_dt = 0.0
-    #     return dv_dt, F_gas, a_ef
     def get_acceleration(self, delta_P, y, v):
         a_ef = self.Aef(y)
         F_gas = delta_P * a_ef
