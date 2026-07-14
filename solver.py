@@ -91,7 +91,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         atol=custom_atol
     )
 
-    print(f"[{nome_condicao}] Simulação concluida! Processando dados de saída...")
+    print(f"[{nome_condicao}] Simulação com {solver_method} concluida! Processando dados de saída...")
 
     # ---------------------------------------------------------
     # Post-Processing
