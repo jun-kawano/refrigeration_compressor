@@ -8,7 +8,7 @@ from compressor_model import ReciprocatingCompressor
 
 num_ciclos = 15
 delta_P_max = 1000
-solver_method = 'DOP853' # 'DOP853', 'RK45', 'Radau', 'RK23'
+solver_method = 'RK45' # 'DOP853', 'RK45', 'Radau', 'RK23'
 # Y = [T, m, y_suc, v_suc, y_des, v_des] # state variables
 custom_rtol = 1e-4 # 1e-4 represents a target of 0.01% relative accuracy
 # custom physical noise floors
