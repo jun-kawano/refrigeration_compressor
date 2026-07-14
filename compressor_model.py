@@ -102,7 +102,7 @@ class Valve:
 
 # ==============================================================================
 # MODELOS DE COMPRESSORES
-# ==============================================================================
+# ==============================================================================S
 
 class ReciprocatingCompressor:
     """classe com a geometria e cinematica de um compressor alternativo de pistao"""
@@ -121,7 +121,6 @@ class ReciprocatingCompressor:
         self.sp_med = 2.0 * (2.0 * r_manivela) * freq
         self.A_piston = 0.25 * np.pi * Dp * Dp
         self.V_swept = self.A_piston * self.L
-
         self.suction_valve = Valve('suction', m_eq_s, k_eq_s, y_max_s)
         self.discharge_valve = Valve('discharge', m_eq_d, k_eq_d, y_max_d)
 
@@ -140,7 +139,6 @@ class ReciprocatingCompressor:
     def area_convec(self, t):
         """retorna a area instantanea de troca termica convectiva"""
         return np.pi * self.Dp * self.piston_height(t) + (2 * self.A_piston)
-
 
     def char_length(self):
         """comprimento caracteristico (diametro do cilindro)"""

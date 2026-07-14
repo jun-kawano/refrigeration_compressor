@@ -9,16 +9,6 @@ if __name__ == '__main__':
     out_dir = Path('outputs')
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ==============================================================================
-    # ESCOLHA E CONFIGURACAO DO MODELO DO COMPRESSOR
-    # ==============================================================================
-    # compressor_ativo = ReciprocatingCompressor(
-    #     config.Dp, config.r_manivela, config.l_biela, config.l_pmls,
-    #     config.dm, config.Vm, config.freq,
-    #     config.m_eq_s, config.k_eq_s, config.y_max_s,
-    #     config.m_eq_d, config.k_eq_d, config.y_max_d
-    # )
-
     print(f"Usando modelo geométrico: {config.compressor_ativo.__class__.__name__} e método: {config.solver_method}")
 
     # ==============================================================================

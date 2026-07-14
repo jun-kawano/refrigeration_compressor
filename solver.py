@@ -77,11 +77,7 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         # Return [dT/dt, dm/dt, dy_suc/dt, dv_suc/dt, dy_des/dt, dv_des/dt]
         return [dT_dt, dm_dt, v_suc_i, dv_dt_suc, v_des_i, dv_dt_des]
 
-    # ---------------------------------------------------------
-    # Execute the Solver
-    # ---------------------------------------------------------
-    # Radau is highly recommended for stiff systems like compressors
-    # BDF is an alternative if Radau fails
+
     sol = solve_ivp(
         fun=compressor_odes,
         t_span=(0, t_stop),
@@ -91,7 +87,17 @@ def simular_condicao(P_suc_target, nome_condicao, delta_P_max, num_ciclos, compr
         atol=custom_atol
     )
 
-    print(f"[{nome_condicao}] Simulação com {solver_method} concluida! Processando dados de saída...")
+    # ==========================================
+    # VERIFICACAO DE CONVERGENCIA
+    # ==========================================
+    if sol.success:
+        print(f"[{nome_condicao}] Simulação {solver_method} concluída com sucesso! ({sol.message})")
+    else:
+        print(f"[{nome_condicao}] FALHA NA SIMULAÇÃO! Motivo: {sol.message}")
+    # ==========================================
+
+    print(f"[{nome_condicao}] Processando dados de saída...")
+
 
     # ---------------------------------------------------------
     # Post-Processing
