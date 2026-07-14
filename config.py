@@ -1,6 +1,14 @@
 import CoolProp.CoolProp as CP
 import numpy as np
 from compressor_model import ReciprocatingCompressor
+
+# ==============================================================================
+# PARAMETROS DA SIMULACAO
+# ==============================================================================
+
+num_ciclos = 15
+delta_P_max = 1000
+
 # ==============================================================================
 # PARAMETROS GERAIS E TERMODINAMICOS
 # ==============================================================================
@@ -35,12 +43,6 @@ freq = N / 60.0
 # Constante do gas
 R_u = CP.PropsSI('gas_constant', fluid)
 R_gas = R_u / CP.PropsSI('M', fluid)
-
-# Relacoes geometricas
-# L = 2 * r_manivela
-# sp_med = 2 * L * freq
-# r_biela_manivela = l_biela / r_manivela
-# A_piston = 0.25 * np.pi * Dp**2
 
 # ==============================================================================
 # PARAMETROS DINAMICOS DAS VALVULAS
