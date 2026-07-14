@@ -99,7 +99,8 @@ class ReciprocatingCompressor:
         self.L = 2.0 * r_manivela
         self.sp_med = 2.0 * (2.0 * r_manivela) * freq
         self.A_piston = 0.25 * np.pi * Dp * Dp
-
+        self.V_swept = self.A_piston * self.L
+                     
         self.suction_valve = Valve('suction', m_eq_s, k_eq_s, y_max_s)
         self.discharge_valve = Valve('discharge', m_eq_d, k_eq_d, y_max_d)
 
