@@ -13,7 +13,9 @@ class Valve:
         self.m_eq = m_eq
         self.k_eq = k_eq
         self.y_max = y_max
-        if self.valve_type == 'suction': # must change this part to be an input attribute so that the polynomial is customizable
+        # must move this part to be an input attribute so that the polynomials
+        # are given in the valve object initialization in config.py
+        if self.valve_type == 'suction':
             self.aef_coeffs_low = [5.1E-05, -4.7E-02, 1.3E+02]
             self.aef_coeffs_high = [4.4E-05, 2.4E-02, -3.3E+01, 1.8E+04, -5.5E+06, 6.7E+08]
             self.aef_const = 5.1E-05
@@ -25,9 +27,9 @@ class Valve:
             raise ValueError("valve_type must be either 'suction' or 'discharge'")
 
     def Aef(self, y):
-        #
         y_safe = max(0.0, min(y, self.y_max))
-
+        # change this to handle multiple polynomials for a single
+        # Aef/Aee function in the future
         if self.valve_type == 'suction':
             if y_safe <= 0.3e-3:
                 c1, c2, c3 = self.aef_coeffs_low

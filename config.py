@@ -6,12 +6,12 @@ from compressor_model import ReciprocatingCompressor
 # PARAMETROS DA SIMULACAO
 # ==============================================================================
 
-num_ciclos = 15
-delta_P_max = 1000
-solver_method = 'RK45' # 'DOP853', 'RK45', 'Radau', 'RK23'
+num_ciclos = 15         # in the future change to a steady state criteria of Y
+delta_P_max = 1000      #no longer used
+solver_method = 'RK45'  # 'DOP853', 'RK45', 'Radau', 'RK23'
 # Y = [T, m, y_suc, v_suc, y_des, v_des] # state variables
 custom_rtol = 1e-4 # 1e-4 represents a target of 0.01% relative accuracy
-# custom physical noise floors
+# custom physical tolerances
 custom_atol = [
     1e-3,  # T: 0.01 K
     1e-8,  # m: 0.01 mg
@@ -50,8 +50,6 @@ N = 3600            # RPM
 Vm = 120e-9         # Volume morto [m³]
 freq = N / 60.0
 
-
-
 # Constante do gas
 R_u = CP.PropsSI('gas_constant', fluid)
 R_gas = R_u / CP.PropsSI('M', fluid)
@@ -59,7 +57,7 @@ R_gas = R_u / CP.PropsSI('M', fluid)
 # ==============================================================================
 # PARAMETROS DINAMICOS DAS VALVULAS
 # ==============================================================================
-fator_esc_reverso = 0.2
+fator_esc_reverso = 0.2 # Aee is reduced to 20% for backflow, maybe move this to valve class
 
 omega_s = 394 * 2 * np.pi
 omega_d = 528 * 2 * np.pi
