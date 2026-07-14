@@ -174,6 +174,14 @@ def calculate_mass_flow(res, freq, num_ciclos, compressor):
     mass_flow = np.trapezoid(m_suc_cycle, t_cycle) * freq
     return mass_flow
 
+def calculate_cycle_work(res, num_ciclos, compressor):
+    t_start_last = (num_ciclos - 1) * (1.0 / compressor.freq)
+    idx = np.where(res['tempo'] >= t_start_last)[0]
+    p_cycle = res['P'][idx]
+    v_cycle = res['V'][idx]
+    work_cycle = np.trapezoid(p_cycle, v_cycle)
+    return work_cycle
+
 def calculate_indicated_power(res, freq, num_ciclos, compressor):
     t_start_last = (num_ciclos - 1) * (1.0 / compressor.freq)
     idx = np.where(res['tempo'] >= t_start_last)[0]
@@ -207,6 +215,7 @@ def calculate_cop(mass_flow, indicated_power, P_e, P_c, T_suc):
 
 def sim_summary(res, titulo, freq, num_ciclos, P_e, P_c, T_suc, compressor):
     mass_flow = calculate_mass_flow(res, freq, num_ciclos, compressor)
+    work_cycle = calculate_cycle_work(res, num_ciclos,compressor)
     indicated_power = calculate_indicated_power(res, freq, num_ciclos,compressor)
     vol_eff = calculate_volumetric_efficiency(mass_flow, P_e, compressor)
     isen_eff = calculate_isentropic_efficiency(mass_flow, indicated_power, P_e, P_c, T_suc)
@@ -214,6 +223,7 @@ def sim_summary(res, titulo, freq, num_ciclos, P_e, P_c, T_suc, compressor):
 
     print(f"\n--- Resumo da Simulação: {titulo} ---")
     print(f"  Vazão mássica: {mass_flow*3600:.2f} kg/h")
+    print(f"  Trabalho por ciclo: {work_cycle:.2f} J")
     print(f"  Potência indicada: {indicated_power:.2f} W")
     print(f"  Eficiência volumétrica: {vol_eff:.2%}")
     print(f"  Eficiência isentrópica: {isen_eff:.2%}")
@@ -223,9 +233,10 @@ def sim_summary(res, titulo, freq, num_ciclos, P_e, P_c, T_suc, compressor):
 # EXECUCAO PRINCIPAL (Leitura dos CSVs e geracao dos plots)
 # ==============================================================================
 if __name__ == '__main__':
-    from config import freq, P_eA, P_eB, P_c, T_eA, T_eB, y_max_s, y_max_d, T_suc
+    from config import freq, P_eA, P_eB, P_c, T_eA, T_eB, y_max_s, y_max_d, T_suc, num_ciclos
 
-    num_ciclos = 15
+    
+
     out_dir = Path('outputs')
 
     csv_A = out_dir / "Resultados_Condicao_A.csv"
